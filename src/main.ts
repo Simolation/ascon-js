@@ -1,5 +1,4 @@
-import { Ascon } from ".";
-import { concatArrays } from "./helper";
+import { Ascon, randomBytes } from ".";
 
 const main = () => {
   const key = BigInt64Array.of(
@@ -23,22 +22,23 @@ const main = () => {
   const nonce = new BigInt64Array(16);
   const associated = new BigInt64Array([4n, 5n]);
 
-  // const str2ab = (text: string): ArrayBufferLike => {
-  //   return new TextEncoder().encode(text);
-  // };
+  const plaintext = new TextEncoder().encode("ascon");
 
-  //const plainText = str2ab("Hello world");
-  const plainText = new BigInt64Array([26n, 32n, 88n, 155n]);
+  // const encrypted = Ascon.encrypt(key, nonce, plainText);
 
-  const encrypted = Ascon.encrypt(key, nonce, plainText);
+  // console.log("----------------------");
 
-  console.log("----------------------");
+  // const modifiedEncrypted = concatArrays(encrypted, new BigInt64Array([]));
 
-  const modifiedEncrypted = concatArrays(encrypted, new BigInt64Array([]));
+  // const decrypted = Ascon.decrypt(key, nonce, modifiedEncrypted);
 
-  const decrypted = Ascon.decrypt(key, nonce, modifiedEncrypted);
+  // console.log("Decrypted", decrypted);
 
-  console.log("Decrypted", decrypted);
+  const hash = Ascon.hash(plaintext, { variant: "Ascon-Hash" });
+
+  const r = randomBytes(32);
+
+  console.log(r);
 };
 
 main();

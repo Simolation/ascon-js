@@ -1,5 +1,7 @@
 import {
   arrayEquals,
+  assertHashLength,
+  assertHashVariant,
   assertLength,
   assertVariant,
   bytesToInt,
@@ -8,72 +10,225 @@ import {
   intToBytes,
   rotr,
   toBytes,
+  transformArrayBufferToBigInt,
+  transformBigIntToArrayBufferLike,
   zeroBytes,
 } from "./helper";
-import { AsconEcnryptionOptions, BytesLike } from "./interfaces";
+import {
+  AsconEncryptionOptions,
+  AsconHashOptions,
+  BytesLike,
+} from "./interfaces";
 
 export class Ascon {
-  public static encrypt(
-    key: BytesLike,
-    nonce: BytesLike,
-    plaintext: BytesLike,
-    options?: AsconEcnryptionOptions
-  ) {
-    const variant = options?.variant ?? "Ascon-128";
-    assertVariant(variant);
-    assertLength(key, nonce, variant);
+  /**
+   * Ascon hash function and extendable-output function.
+   * @param message a Uint8Array of arbitrary length
+   * @param options additional parameters including the variant and the length of the hash
+   *
+   * @returns a Uint8Array containing the hash
+   *
+   * @example
+   * ```typescript
+   * // Normal mode (Ascon-Hash)
+   * const message = new TextEncoder().encode("ascon");
+   * const hash = Ascon.hash(message);
+   * hash // 32 bytes hash
+   *
+   * // XOF mode (Ascon-Xof)
+   * const message = new TextEncoder().encode("ascon");
+   * const hash = Ascon.hash(message, { variant: "Ascon-Xof", length: 64 });
+   * hash // 64 bytes hash (default is 32 bytes)
+   * ```
+   */
+  public static hash(
+    message: Uint8Array,
+    options?: AsconHashOptions
+  ): Uint8Array {
+    const bigArray = transformArrayBufferToBigInt(message);
 
-    let S = Array(5).fill(BigInt(0));
-    const k = key.length * 8; // bits
+    const variant = options?.variant ?? "Ascon-Hash";
+    const hashLength = (options as { length?: number })?.length ?? 32;
+
+    assertHashVariant(variant);
+    assertHashLength(hashLength, variant);
+
     const a = 12; // rounds
-    const b = variant === "Ascon-128a" ? 8 : 6; // rounds
-    const rate = variant === "Ascon-80pq" ? 16 : 8; // bytes
+    const b = ["Ascon-Hasha", "Ascon-Xofa"].includes(variant) ? 8 : 12;
+    const rate = 8; // bytes
 
-    S = this.initialize(S, k, rate, a, b, key, nonce);
+    const tagSpec = intToBytes(
+      ["Ascon-Hash", "Ascon-Hasha"].includes(variant) ? 256n : 0n,
+      4
+    );
 
-    this.processAssociatedData(S, b, rate, options?.associatedData);
+    const S = bytesToState(
+      concatArrays(
+        toBytes([0n, BigInt(rate * 8), BigInt(a), BigInt(a - b)]),
+        tagSpec,
+        zeroBytes(32)
+      )
+    );
 
-    const cipherText = this.processPlaintext(S, b, rate, plaintext);
+    this.permutation(S, a);
 
-    const tag = this.finalize(S, rate, a, key);
+    const mPadded = concatArrays(
+      bigArray,
+      toBytes([0x80n]),
+      zeroBytes(rate - (bigArray.length % rate) - 1)
+    );
 
-    return concatArrays(cipherText, tag);
+    // first s - 1 blocks
+    for (let i = 0; i < mPadded.length - rate; i += rate) {
+      S[0] ^= bytesToInt(mPadded.slice(i, i + 8)); // rate = 8
+      this.permutation(S, b);
+    }
+
+    const i = mPadded.length - rate;
+    S[0] ^= bytesToInt(mPadded.slice(i, i + 8)); // rate = 8
+
+    this.permutation(S, a);
+
+    let hash = new BigInt64Array();
+    while (hash.length < hashLength) {
+      hash = concatArrays(hash, intToBytes(S[0], 8)); // rate = 8
+      this.permutation(S, b);
+    }
+
+    return transformBigIntToArrayBufferLike(hash.slice(0, hashLength));
   }
 
-  public static decrypt(
-    key: BytesLike,
-    nonce: BytesLike,
-    ciphertext: BytesLike,
-    options?: AsconEcnryptionOptions
-  ) {
-    const variant = options?.variant ?? "Ascon-128";
+  /**
+   * Ascon encryption.
+   * @param key a Uint8Array of size 16 (for Ascon-128, Ascon-128a; 128-bit security) or 20 (for Ascon-80pq; 128-bit security)
+   * @param nonce a Uint8Array of size 16 (must not repeat for the same key!)
+   * @param plaintexta a Uint8Array of arbitrary length
+   * @param options additional parameters including the variant and associated data as a Uint8Array
+   *
+   * @returns a Uint8Array of length plaintext.length + 16 containing the ciphertext and tag
+   *
+   * @example
+   * ```typescript
+   * const key = new Uint8Array([...]);
+   * const nonce = new Uint8Array([...]);
+   * const plaintext = new TextEncoder().encode("ascon");
+   *
+   * const ciphertext = Ascon.encrypt(key, nonce, plaintext);
+   *
+   * // With associated data
+   * const key = new Uint8Array([...]);
+   * const nonce = new Uint8Array([...]);
+   * const plaintext = new TextEncoder().encode("ascon");
+   * const associatedData = new TextEncoder().encode("more data");
+   *
+   * const ciphertext = Ascon.encrypt(key, nonce, plaintext, { associatedData });
+   * ```
+   */
+  public static encrypt(
+    key: Uint8Array,
+    nonce: Uint8Array,
+    plaintext: Uint8Array,
+    options?: AsconEncryptionOptions
+  ): Uint8Array {
+    const bigKey = transformArrayBufferToBigInt(key);
+    const bigNonce = transformArrayBufferToBigInt(nonce);
+    const bigPlaintext = transformArrayBufferToBigInt(plaintext);
+    const bigAssociatedData = options?.associatedData
+      ? transformArrayBufferToBigInt(options?.associatedData)
+      : undefined;
 
+    const variant = options?.variant ?? "Ascon-128";
     assertVariant(variant);
-    assertLength(key, nonce, variant);
+    assertLength(bigKey, bigNonce, variant);
 
     let S = Array(5).fill(BigInt(0));
-    const k = key.length * 8; // bits
+    const k = bigKey.length * 8; // bits
     const a = 12; // rounds
     const b = variant === "Ascon-128a" ? 8 : 6; // rounds
     const rate = variant === "Ascon-80pq" ? 16 : 8; // bytes
 
-    S = this.initialize(S, k, rate, a, b, key, nonce);
-    this.processAssociatedData(S, b, rate, options?.associatedData);
+    S = this.initialize(S, k, rate, a, b, bigKey, bigNonce);
+
+    this.processAssociatedData(S, b, rate, bigAssociatedData);
+
+    const cipherText = this.processPlaintext(S, b, rate, bigPlaintext);
+
+    const tag = this.finalize(S, rate, a, bigKey);
+
+    return transformBigIntToArrayBufferLike(concatArrays(cipherText, tag));
+  }
+
+  /**
+   * Ascon decryption.
+   * @param key a Uint8Array of size 16 (for Ascon-128, Ascon-128a; 128-bit security) or 20 (for Ascon-80pq; 128-bit security)
+   * @param nonce a Uint8Array of size 16 (must not repeat for the same key!)
+   * @param ciphertext a Uint8Array of arbitrary length
+   * @param options additional parameters including the variant and associated data as a Uint8Array
+   *
+   * @returns a Uint8Array containing the plaintext or throws when the verification fails
+   * @throws when the verification fails
+   *
+   * @example
+   * ```typescript
+   * const key = new Uint8Array([...]);
+   * const nonce = new Uint8Array([...]);
+   * const ciphertext = new Uint8Array([...]);
+   *
+   * const plaintext = Ascon.decrypt(key, nonce, ciphertext);
+   * plaintext // "ascon"
+   *
+   * // With associated data
+   * const key = new Uint8Array([...]);
+   * const nonce = new Uint8Array([...]);
+   * const ciphertext = new Uint8Array([...]);
+   * const associatedData = new TextEncoder().encode("more data");
+   *
+   * const plaintext = Ascon.decrypt(key, nonce, ciphertext, { associatedData });
+   * plaintext // "ascon"
+   *
+   * ```
+   */
+  public static decrypt(
+    key: Uint8Array,
+    nonce: Uint8Array,
+    ciphertext: Uint8Array,
+    options?: AsconEncryptionOptions
+  ): Uint8Array {
+    const bigKey = transformArrayBufferToBigInt(key);
+    const bigNonce = transformArrayBufferToBigInt(nonce);
+    const bigCiphertext = transformArrayBufferToBigInt(ciphertext);
+    const bigAssociatedData = options?.associatedData
+      ? transformArrayBufferToBigInt(options?.associatedData)
+      : undefined;
+
+    const variant = options?.variant ?? "Ascon-128";
+
+    assertVariant(variant);
+    assertLength(bigKey, bigNonce, variant);
+
+    let S = Array(5).fill(BigInt(0));
+    const k = bigKey.length * 8; // bits
+    const a = 12; // rounds
+    const b = variant === "Ascon-128a" ? 8 : 6; // rounds
+    const rate = variant === "Ascon-80pq" ? 16 : 8; // bytes
+
+    S = this.initialize(S, k, rate, a, b, bigKey, bigNonce);
+    this.processAssociatedData(S, b, rate, bigAssociatedData);
 
     const plainText = this.processCipherText(
       S,
       b,
       rate,
-      ciphertext.slice(0, -16)
+      bigCiphertext.slice(0, -16)
     );
 
-    const tag = this.finalize(S, rate, a, key);
+    const tag = this.finalize(S, rate, a, bigKey);
 
-    if (!arrayEquals(tag, ciphertext.slice(-16))) {
+    if (!arrayEquals(tag, bigCiphertext.slice(-16))) {
       throw new Error("Could not be decrypted. Tags don't match.");
     }
 
-    return plainText;
+    return transformBigIntToArrayBufferLike(plainText);
   }
 
   private static initialize(

@@ -1,4 +1,8 @@
-import { AsconEncryptionVariant, BytesLike } from "./interfaces";
+import {
+  AsconEncryptionVariant,
+  AsconHashVariant,
+  BytesLike,
+} from "./interfaces";
 
 /**
  * Assert that the variant is a valid Ascon variant.
@@ -10,6 +14,18 @@ export function assertVariant(
   if (!["Ascon-128", "Ascon-128a", "Ascon-80pq"].includes(variant)) {
     throw new Error(
       `Invalid Ascon variant. "${variant}" is not a valid Ascon variant out of "Ascon-128", "Ascon-128a", "Ascon-80pq".`
+    );
+  }
+}
+
+export function assertHashVariant(
+  variant: string
+): asserts variant is AsconHashVariant {
+  if (
+    !["Ascon-Hash", "Ascon-Hasha", "Ascon-Xof", "Ascon-Xofa"].includes(variant)
+  ) {
+    throw new Error(
+      `Invalid Ascon hash variant. "${variant}" is not a valid Ascon hash variant out of "Ascon-Hash", "Ascon-Hasha", "Ascon-Xof", "Ascon-Xofa".`
     );
   }
 }
@@ -44,8 +60,21 @@ export function assertLength(
   return true;
 }
 
-export const toBase64 = (array: BytesLike) =>
-  btoa(String.fromCharCode(...new Uint8Array(array.buffer)));
+export function assertHashLength(
+  hashLength: number,
+  variant: AsconHashVariant
+) {
+  if (["Ascon-Hash", "Ascon-Hasha"].includes(variant) && hashLength != 32) {
+    throw new Error(
+      `Invalid hash length. Received ${hashLength} bytes but expected 32 bytes for ${variant}.`
+    );
+  }
+  // else if (["Ascon-Xof", "Ascon-Xofa"].includes(variant) && hashLength < 32) {
+  //   throw new Error(
+  //     `Invalid hash length. Received ${hashLength} bytes but expected >= 32 bytes.`
+  //   );
+  // }
+}
 
 export function toBytes(value: bigint[]): BytesLike {
   return new BigInt64Array(value);
@@ -100,3 +129,35 @@ export function arrayEquals(a: BytesLike, b: BytesLike): boolean {
   }
   return true;
 }
+
+export function transformArrayBufferToBigInt(array: Uint8Array): BytesLike {
+  return array.reduce((acc, val, i) => {
+    acc[i] = BigInt(val);
+    return acc;
+  }, new BigInt64Array(array.length));
+}
+
+export function transformBigIntToArrayBufferLike(array: BytesLike): Uint8Array {
+  return array.reduce((acc, val, i) => {
+    acc[i] = Number(val);
+    return acc;
+  }, new Uint8Array(array.length));
+}
+
+export const randomBytes = (n: number): Uint8Array => {
+  // @ts-ignore
+  if (typeof self !== "undefined" && (self.crypto || self.msCrypto)) {
+    // Browsers
+    // @ts-ignore
+    const crypto = self.crypto || self.msCrypto;
+    const QUOTA = 65536;
+    const a = new Uint8Array(n);
+    for (let i = 0; i < n; i += QUOTA) {
+      crypto.getRandomValues(a.subarray(i, i + Math.min(n - i, QUOTA)));
+    }
+    return a;
+  } else {
+    // Node
+    return require("crypto").randomBytes(n);
+  }
+};

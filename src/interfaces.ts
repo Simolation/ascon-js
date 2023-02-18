@@ -7,7 +7,20 @@ export type AsconHashVariant =
   | "Ascon-Xof"
   | "Ascon-Xofa";
 
-export interface AsconEcnryptionOptions {
+export interface AsconEncryptionOptions {
   variant?: AsconEncryptionVariant;
-  associatedData?: BytesLike;
+  associatedData?: Uint8Array;
 }
+
+export interface AsconHashOptionsFixLength {
+  variant?: "Ascon-Hash" | "Ascon-Hasha";
+}
+
+export interface AsconHashOptionsVariableLength {
+  variant?: "Ascon-Xof" | "Ascon-Xofa";
+  length?: number;
+}
+
+export type AsconHashOptions =
+  | AsconHashOptionsFixLength
+  | AsconHashOptionsVariableLength;
