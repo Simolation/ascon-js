@@ -1,0 +1,51 @@
+{
+  "name": "ascon-js",
+  "private": false,
+  "version": "1.0.0",
+  "author": "Simon Osterlehner <simon@osterlehner.de>",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/ascon-js.mjs",
+  "module": "./dist/ascon-js.mjs",
+  "browser": "./dist/ascon-js.umd.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "do:publish": "npm publish --access=public",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^18.13.0",
+    "typescript": "^4.9.3",
+    "vite": "^4.1.0",
+    "vite-plugin-dts": "^1.7.3",
+    "vitest": "^0.28.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Simolation/ascon-js.git"
+  },
+  "homepage": "https://github.com/Simolation/ascon-js",
+  "bugs": {
+    "url": "https://github.com/Simolation/ascon-js/issues"
+  },
+  "keywords": [
+    "ascon",
+    "encryption",
+    "cryptography",
+    "crypto",
+    "hash",
+    "nist",
+    "aead"
+  ]
+}
