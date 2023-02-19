@@ -4,6 +4,8 @@ TypeScript implementation of Ascon v1.2, an authenticated cipher and hash functi
 
 This implementation is a port of the [Python version](https://github.com/meichlseder/pyascon).
 
+[![npm](https://img.shields.io/npm/v/ascon-js)](https://www.npmjs.com/package/ascon-js) ![npm](https://img.shields.io/npm/dw/ascon-js) [![NPM](https://img.shields.io/npm/l/ascon-js)](https://github.com/Simolation/ascon-js/blob/main/LICENSE)
+
 ## Usage
 
 This library can be used both in the browser and in NodeJS.
@@ -75,7 +77,7 @@ The used algorithm can be specified using the options parameter.
 ```ts
 const key = randomBytes(20); // 20 bytes
 
-Ascon.encryption(key, nonce, plaintext, {
+Ascon.encrypt(key, nonce, plaintext, {
   variant: "Ascon-80pq",
 });
 ```
@@ -86,9 +88,9 @@ Ascon.encryption(key, nonce, plaintext, {
 const key = ...; // 16 bytes
 const nonce = ...; // 16 bytes
 
-const ciperhtext = ...; // Encrypted data
+const ciphertext = ...; // Encrypted data
 
-// Encrypt the plaintext using the key and the nonce
+// Decrypt the ciphertext using the key and the nonce
 const plaintextResult = Ascon.decrypt(key, nonce, ciphertext);
 
 const text = new TextEncoder().decode(plaintextResult); // "ascon"
