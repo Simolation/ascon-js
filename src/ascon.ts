@@ -102,7 +102,7 @@ export class Ascon {
    * Ascon encryption.
    * @param key a Uint8Array of size 16 (for Ascon-128, Ascon-128a; 128-bit security) or 20 (for Ascon-80pq; 128-bit security)
    * @param nonce a Uint8Array of size 16 (must not repeat for the same key!)
-   * @param plaintexta a Uint8Array of arbitrary length
+   * @param plaintext a Uint8Array of arbitrary length
    * @param options additional parameters including the variant and associated data as a Uint8Array
    *
    * @returns a Uint8Array of length plaintext.length + 16 containing the ciphertext and tag
@@ -145,14 +145,12 @@ export class Ascon {
     const k = bigKey.length * 8; // bits
     const a = 12; // rounds
     const b = variant === "Ascon-128a" ? 8 : 6; // rounds
-    const rate = variant === "Ascon-80pq" ? 16 : 8; // bytes
+    const rate = variant === "Ascon-128a" ? 16 : 8; // bytes
 
     S = this.initialize(S, k, rate, a, b, bigKey, bigNonce);
-
     this.processAssociatedData(S, b, rate, bigAssociatedData);
 
     const cipherText = this.processPlaintext(S, b, rate, bigPlaintext);
-
     const tag = this.finalize(S, rate, a, bigKey);
 
     return transformBigIntToArrayBufferLike(concatArrays(cipherText, tag));
@@ -210,7 +208,7 @@ export class Ascon {
     const k = bigKey.length * 8; // bits
     const a = 12; // rounds
     const b = variant === "Ascon-128a" ? 8 : 6; // rounds
-    const rate = variant === "Ascon-80pq" ? 16 : 8; // bytes
+    const rate = variant === "Ascon-128a" ? 16 : 8; // bytes
 
     S = this.initialize(S, k, rate, a, b, bigKey, bigNonce);
     this.processAssociatedData(S, b, rate, bigAssociatedData);
@@ -427,7 +425,8 @@ export class Ascon {
     const numRate = rate;
     S[Math.floor(numRate / 8) + 0] ^= bytesToInt(key.slice(0, 8));
     S[Math.floor(numRate / 8) + 1] ^= bytesToInt(key.slice(8, 16));
-    S[Math.floor(numRate / 8) + 2] ^= bytesToInt(key.slice(16));
+    const pKey = concatArrays(key, zeroBytes(4));
+    S[Math.floor(numRate / 8) + 2] ^= bytesToInt(pKey.slice(16));
 
     this.permutation(S, a);
 
