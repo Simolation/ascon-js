@@ -9,6 +9,9 @@ const nonce = fromHex("6c27fff03b58975180cf12de2fd2d6e2");
 
 const arrayToLong = fromHex("01020304050607080900010203040506070809");
 const plainText = new TextEncoder().encode("ascon");
+const plainTextLonger = new TextEncoder().encode(
+  "This is a longer message used for testing purposes and is definitely longer than 32 bytes."
+);
 const associatedData = new TextEncoder().encode("ASCON");
 
 describe("Ascon.hash", () => {
@@ -200,4 +203,57 @@ describe("Ascon.decrypt", () => {
       )
     ).toThrow("Could not be decrypted. Tags don't match.");
   });
+});
+
+describe("Ascon de- and encryption", () => {
+  it.each([
+    {
+      variant: "Ascon-128" as AsconEncryptionVariant,
+      associatedData,
+    },
+    {
+      variant: "Ascon-128" as AsconEncryptionVariant,
+      associatedData: undefined,
+    },
+    {
+      variant: "Ascon-128a" as AsconEncryptionVariant,
+      associatedData,
+    },
+    {
+      variant: "Ascon-128a" as AsconEncryptionVariant,
+      associatedData: undefined,
+    },
+    {
+      variant: "Ascon-80pq" as AsconEncryptionVariant,
+      associatedData,
+    },
+    {
+      variant: "Ascon-80pq" as AsconEncryptionVariant,
+      associatedData: undefined,
+    },
+  ])(
+    "Should correctly encrypt and decrypt different length plaintext with $variant",
+    ({ variant, associatedData }) => {
+      [Uint8Array.from([]), plainText, plainTextLonger].forEach((item) => {
+        const keyToUse = variant === "Ascon-80pq" ? key20 : key;
+        const encrypted = Ascon.encrypt(keyToUse, nonce, item, {
+          associatedData,
+          variant,
+        });
+
+        // Check the length of the encrypted text + 16 bytes for the tag
+        expect(encrypted).toHaveLength(item.length + 16);
+        expect(encrypted).not.toEqual(item);
+
+        const decrypted = Ascon.decrypt(keyToUse, nonce, encrypted, {
+          associatedData,
+          variant,
+        });
+
+        // Check the length of the encrypted text + 16 bytes for the tag
+        expect(decrypted).toHaveLength(item.length);
+        expect(decrypted).toEqual(item);
+      });
+    }
+  );
 });

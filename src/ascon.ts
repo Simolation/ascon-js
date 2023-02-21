@@ -401,9 +401,11 @@ export class Ascon {
 
       plaintext = concatArrays(
         plaintext,
-        intToBytes(S[0] ^ c0, 8),
-        intToBytes(S[1] ^ c1, 8)
-      ).slice(0, cLastLen);
+        concatArrays(intToBytes(S[0] ^ c0, 8), intToBytes(S[1] ^ c1, 8)).slice(
+          0,
+          cLastLen
+        )
+      );
 
       if (cLastLen < 8) {
         S[0] = c0 ^ (S[0] & cMask) ^ cPadding;
