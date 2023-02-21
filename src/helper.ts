@@ -161,3 +161,25 @@ export const randomBytes = (n: number): Uint8Array => {
     return require("crypto").randomBytes(n);
   }
 };
+
+/**
+ * Convert a buffer to a hex string.
+ * @param buffer The buffer to convert.
+ * @returns The hex string.
+ */
+export const toHex = (buffer: Uint8Array): string => {
+  return Array.prototype.map
+    .call(buffer, (n) => n.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+/**
+ * Convert a hex string to a buffer.
+ * @param hexString The hex string to convert.
+ * @returns The buffer.
+ */
+export const fromHex = (hexString: string) => {
+  return Uint8Array.from(
+    hexString.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) ?? []
+  );
+};

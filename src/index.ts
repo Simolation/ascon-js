@@ -1,3 +1,3 @@
 export * from "./ascon";
 export * from "./interfaces";
-export { randomBytes } from "./helper";
+export { randomBytes, toHex, fromHex } from "./helper";
