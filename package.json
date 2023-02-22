@@ -20,7 +20,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "do:publish": "vitest run && npm publish --access=public",
-    "test": "vitest",
+    "test:dev": "vitest",
+    "test": "vitest run",
     "coverage": "vitest run --coverage"
   },
   "dependencies": {},
