@@ -93,5 +93,5 @@ const ciphertext = ...; // Encrypted data
 // Decrypt the ciphertext using the key and the nonce
 const plaintextResult = Ascon.decrypt(key, nonce, ciphertext);
 
-const text = new TextEncoder().decode(plaintextResult); // "ascon"
+const text = new TextDecoder().decode(plaintextResult); // "ascon"
 ```
