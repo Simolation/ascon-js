@@ -1,5 +1,4 @@
 import { Ascon, fromHex, randomBytes, toHex } from ".";
-import { arrayEquals } from "./helper";
 
 const main = () => {
   const key = fromHex("e4ea93530575bd6f5dc68cb241e32d1c");
@@ -32,7 +31,7 @@ const main = () => {
 
   console.log("Decrypted", decrypted);
 
-  console.log("Decrypted", arrayEquals(decrypted, plaintext), text);
+  console.log("Decrypted", text);
 };
 
 main();

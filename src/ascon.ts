@@ -14,7 +14,7 @@ import {
   transformBigIntToArrayBufferLike,
   zeroBytes,
 } from "./helper";
-import {
+import type {
   AsconEncryptionOptions,
   AsconHashOptions,
   BytesLike,
@@ -203,6 +203,10 @@ export class Ascon {
 
     assertVariant(variant);
     assertLength(bigKey, bigNonce, variant);
+
+    if (ciphertext.length < 16) {
+      throw new Error("Could not be decrypted. Ciphertext too short.");
+    }
 
     let S = Array(5).fill(BigInt(0));
     const k = bigKey.length * 8; // bits
@@ -427,7 +431,7 @@ export class Ascon {
     const numRate = rate;
     S[Math.floor(numRate / 8) + 0] ^= bytesToInt(key.slice(0, 8));
     S[Math.floor(numRate / 8) + 1] ^= bytesToInt(key.slice(8, 16));
-    const pKey = concatArrays(key, zeroBytes(4));
+    const pKey = concatArrays(key, zeroBytes(24 - key.length));
     S[Math.floor(numRate / 8) + 2] ^= bytesToInt(pKey.slice(16));
 
     this.permutation(S, a);
